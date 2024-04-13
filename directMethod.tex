@@ -38,7 +38,7 @@
 
 解决问题前，先创建一些可用于题目的函数，如下所示：
 \begin{lstlisting}[caption=Guass消去法解方程组函数, language=matlab]
-    %高斯消去法求解线性方程组Ax=b
+    %高斯消去法解方程组
     function [x,det_A]=gauss_elimination(A,b)
     %获取方程组的规模
     [n,~]=size(A);
