@@ -1,0 +1,319 @@
+\documentclass{ctexart}
+\usepackage{caption}
+\usepackage[dvipsnames]{xcolor} % 更全的色系
+\usepackage{listings} % 排代码用的宏包
+\usepackage{amsmath}% 数学公式宏包
+\usepackage{graphicx}% 插图宏包
+\usepackage{geometry} % 页边距调整宏包
+\geometry{left=2cm,right=2cm,top=2cm,bottom=2cm}% 页边距设置
+\linespread{1.5}% 行间距设置
+\lstset{% 设置代码块格式
+    language = matlab,
+    backgroundcolor = \color{white}, % 背景色：白色
+    basicstyle = \small\ttfamily, % 基本样式 + 小号字体
+    rulesepcolor= \color{gray}, % 代码块边框颜色
+    breaklines = true, % 代码过长则换行
+    numbers = left, % 行号在左侧显示
+    numberstyle = \small, % 行号字体
+    keywordstyle = \color{blue}, % 关键字颜色
+    commentstyle =\color{green!100}, % 注释颜色
+    stringstyle = \color{red!100}, % 字符串颜色
+    frame = shadowbox, % 用(带影子效果)方框框住代码块
+    showspaces = false, % 不显示空格
+    columns = fixed, % 字间距固定
+    %escapeinside={} % 特殊自定分隔符：
+    morekeywords = {as}, % 自加新的关键字(必须前后都是空格)
+    deletendkeywords = {compile} % 删除内定关键字；删除错误标记的关键字用deletekeywords删！
+}
+
+
+%导言区
+\title{{\kaishu 第三章 线性直接法作业}}
+\author{{\kaishu 光宗耀祖}}
+\date{\today}
+
+%正文区
+\begin{document}
+\maketitle
+
+解决问题前，先创建一些可用于题目的函数，如下所示：
+\begin{lstlisting}[caption=Guass消去法解方程组函数, language=matlab]
+    %高斯消去法求解线性方程组Ax=b
+    function [x,det_A]=gauss_elimination(A,b)
+    %获取方程组的规模
+    [n,~]=size(A);
+    aug_matrix=[A,b];
+    for k=1:n-1
+        if aug_matrix(k, k) == 0
+            % 在当前列中找到一个非零元素所在的行，并与当前行交换
+            nonzero_row = find(aug_matrix(k+1:end, k), 1, 'first') + k;
+            if isempty(nonzero_row)
+                error('系数矩阵非满秩，无法继续消元');
+            end
+            % 交换当前行与非零元素所在行
+            aug_matrix([k,nonzero_row], :) = aug_matrix([nonzero_row,k], :);
+        end
+        %用不为0的主元消去k行下面的数
+        for i=k+1:n
+            factor=aug_matrix(i,k)/aug_matrix(k,k);
+            aug_matrix(i, k+1:end) = aug_matrix(i, k+1:end) - factor * aug_matrix(k, k+1:end);
+        end
+    end
+    % 回代过程
+    x=zeros(n,1);
+    x(n) = aug_matrix(n, n+1) / aug_matrix(n, n);
+        for i = n-1:-1:1
+            x(i) = (aug_matrix(i, n+1) - aug_matrix(i, i+1:n) * x(i+1:n)) / aug_matrix(i, i);
+        end
+    det_A=1;
+        for i=1:n
+            det_A=det_A*aug_matrix(i,i);
+        end
+    end
+\end{lstlisting}
+\begin{lstlisting}[caption=Doolittle分解函数, language=matlab]
+    %对矩阵A进行doolittle分解
+    function [L,U]=doolittle(A)
+        [m,n]=size(A);
+        if m~=n
+            error('A需要为方阵');
+        end
+        L=eye(n);
+        U=zeros(n,n);
+        for r=1:n
+            for j=r:n
+                U(r,j)=A(r,j)-L(r,1:r-1)*U(1:r-1,j);
+            end
+
+            for i=r+1:n
+                L(i,r)=(A(i,r)-L(i,1:r-1)*U(1:r-1,r))/U(r,r);
+            end
+        end
+    end    
+\end{lstlisting}
+\begin{lstlisting}[caption=Doolittle分解法求解方程组函数, language=matlab]
+    function x=solve_doolittle(L,U,b)
+        y=zeros(size(b));
+        for i=1:length(b)
+            j=1:i-1;
+            y(i)=b(i)-L(i,j)*(y(j))';
+        end
+        x=zeros(size(b));
+        for i=length(b):-1:1
+            j=i+1:length(b);
+            x(i)=(y(i)-U(i,j)*(x(j))')/U(i,i);
+        end
+    end
+\end{lstlisting}
+\begin{lstlisting}[caption=Cholesky分解函数, language=matlab]
+    function L=cholesky_decomposition(A)
+    [n,m]=size(A);
+    if n~=m
+        error('矩阵不是方阵')
+    else
+        for i=1:n
+            for j=1:n
+                if A(i,j)~=A(j,i)
+                    error('矩阵不是对称矩阵')
+                end
+            end
+        end
+    end
+    eigenvalues = eig(A);
+    e=length(eigenvalues);
+    for i=1:e
+    if eigenvalues(i) < 0
+        error('A 不是正定矩阵（通过特征值判据）。');
+    end
+    end
+        n = size(A, 1);
+        L = zeros(n);
+        for i = 1:n
+            for j = 1:i
+                if i == j
+                    L(i, i) = sqrt(A(i, i) - sum(L(i, 1:i-1).^2));
+                else
+                    L(i, j) = (A(i, j) - sum(L(i, 1:j-1).*L(j, 1:j-1))) / L(j, j);
+                end
+            end
+        end
+    end
+\end{lstlisting}
+
+\newpage
+1. {\kaishu 用Gauss消去法解方程组}
+
+\[
+\left\{
+\begin{array}{rcl}
+x_{1} -x_{2} +3 x_{3} &=&-3 \\
+-x_{1} \qquad -2 x_{3} &= &1 \\
+2 x_{1} +2 x_{2} +4 x_{3} &=&0
+\end{array}
+\right.
+\]
+
+{\kaishu 并利用Gauss消去法求解系数矩阵的行列式和逆矩阵.}
+
+解：使用MATLAB求解代码如下
+\begin{lstlisting}[language=matlab]
+    A = [1,-1,3;-1,0,3;2,2,4];
+    b = [3; 1; 0];
+    [x,det_A]= gauss_elimination(A, b);
+    disp(x)
+    disp(det_A)
+\end{lstlisting}
+得到结果为$x_1=0.3636,x_2=-1.2727,x_3=-0.4545$，系数矩阵的行列式为$-22$。
+
+2. {\kaishu 使用Doolittle分解法求解方程组}
+
+\[
+\left\{
+\begin{aligned}
+2 x_{1} - 4 x_{2} + 6 x_{3} &= 3 \\
+4 x_{1} - 9 x_{2} + 2 x_{3} &= 5 \\
+x_{1} - x_{2} + 3 x_{3} &= 4
+\end{aligned}
+\right.
+\]
+
+解：使用MATLAB求解代码如下
+\begin{lstlisting}[language=matlab]
+    A=[2,-4,6;4,-9,2;1,-1,3];
+    b=[3,5,4];
+    [L,U]=doolittle(A);
+    x=solve_doolittle(L,U,b);
+    disp(L)
+    disp(U)
+    disp(x)    
+\end{lstlisting}
+可以得到矩阵$L$和$U$分别为
+\[
+L=\left(\begin{array}{ccc}
+1 & 0 & 0 \\
+2 & 1 & 0 \\
+0.5 & -1 & 1
+\end{array}\right), \quad U=\left(\begin{array}{ccc}
+2 & -4 & 6 \\
+0 & -1 & -10 \\
+0 & 0 & -10
+\end{array}\right)
+\]
+解得$x_1=6.95,x_2=2.5,x_3=-0.15$。
+
+3. {\kaishu 线性方程组}  $A x=b$
+\[
+\left(\begin{array}{ccc}
+2 & 3 & 4 \\
+1 & 1 & 9 \\
+1 & 2 & -6
+\end{array}\right)\left(\begin{array}{l}
+x_{1} \\
+x_{2} \\
+x_{3}
+\end{array}\right)=\left(\begin{array}{l}
+0 \\
+2 \\
+1
+\end{array}\right)
+\]
+
+{\kaishu 对 $A^{T} A$ 进行Cholesky分解}
+
+解：使用MATLAB求解代码如下
+\begin{lstlisting}[language=matlab]
+    A=[2,3,4;1,1,9;1,2,-6];
+    B=A'*A;
+    L1=cholesky_decomposition(B);
+    L2=chol(B);
+    disp(L1)
+    disp(L2)
+\end{lstlisting}
+可以得到Cholesky分解的结果为
+\[
+L=\left(\begin{array}{ccc}
+2.4495&3.6742&4.4907\\
+0&0.7071&-10.6066\\
+0&0&0.5774
+\end{array}\right)
+\]
+
+
+4. {\kaishu 用matlab求解比较下面两个方程组的解.}
+
+\[
+\left\{
+\begin{aligned}
+x_{1} + \frac{1}{2} x_{2} + \frac{1}{3} x_{3} &= 1 \\
+\frac{1}{2} x_{1} + \frac{1}{3} x_{2} + \frac{1}{4} x_{3} &= 0 \\
+\frac{1}{3} x_{1} + \frac{1}{4} x_{2} + \frac{1}{5} x_{3} &= 0
+\end{aligned}
+\right.
+\quad \text{和} \quad
+\left\{
+\begin{aligned}
+1.000 x_{1} + 0.50 x_{2} + 0.33 x_{3} &= 1 \\
+0.50 x_{1} + 0.33 x_{2} + 0.25 x_{3} &= 0 \\
+0.33 x_{1} + 0.25 x_{2} + 0.20 x_{3} &= 0
+\end{aligned}
+\right.
+\]
+
+解：使用MATLAB求解代码如下
+\begin{lstlisting}[language=matlab]
+    A1=[1,1/2,1/3;1/2,1/3,1/4;1/3,1/4,1/5];
+    A2=[1.000,0.50,0.33;0.50,0.33,0.25;0.33,0.25,0.20];
+    b=[1;0;0];
+    [X1,~]=gauss_elimination(A1,b);
+    [X2,~]=gauss_elimination(A2,b);
+    disp(X1)
+    disp(X2)
+\end{lstlisting}
+
+可以得到第一个方程组的解为$x_1=9,x_2=-36,x_3=30$，
+
+第二个方程组的解为$x_1=55.5556,x_2=-277.7778,x_3=255.5556$。
+
+分析产生误差的原因，是因为第一个方程组的系数矩阵的条件数较大，导致数值计算误差。
+
+5. {\kaishu 令}
+\[
+A=\left(\begin{array}{cc}
+10^{-16} & 1 \\
+1 & 1
+\end{array}\right) \quad b=\left(\begin{array}{l}
+2 \\
+3
+\end{array}\right)
+\]
+
+{\kaishu 
+(1) 用手算精确求解线性方程组 $ A x=b $, 写出 $ x_{1} $ 和 $x_{2}$ 的计算结果.
+
+(2) 在matlab中输入矩阵A, 并计算  $\operatorname{cond}(\mathrm{A})$ .
+
+(3) 编程使用Guass消去法求解线性方程组  $A x=b$ , 并和使用 matlab中输入  $A \backslash b$  的结果进行比较.}
+
+解：使用MATLAB求解代码如下
+\begin{lstlisting}[language=matlab]
+    A=[10^-16,1;1,1];
+    b=[2;3];
+    % T5(2)计算矩阵A的条件数
+    condition_number = cond(A);
+    disp(['矩阵A的条件数为：', num2str(condition_number)]);
+    %T5(3)
+    [X1,~]=gauss_elimination(A,b);
+    X2=A\b;
+    disp(X1)
+    disp(X2)
+\end{lstlisting}
+
+(1) 由手算可得$x_1=\frac{1}{1-10^{-16}},x_2=2-\frac{1}{10^{16}-1}$。
+
+(2) 计算得到矩阵$A$的条件数为$2.618$。
+
+(3) 使用Gauss消去法求解得到$x_1=4.4409,x_2=2.0000$，使用MATLAB内置函数求解得到$x_1=1,x_2=2$。
+
+分析产生误差的原因，是因为矩阵$A$的条件数较大，导致数值计算误差。
+
+\end{document}
