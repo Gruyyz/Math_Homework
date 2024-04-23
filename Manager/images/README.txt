@@ -1,1 +1,0 @@
-Images that are used
